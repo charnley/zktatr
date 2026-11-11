@@ -46,9 +46,11 @@ class TaskApp(App):
     #panel {
         width: 90%;
         max-width: 100;
-        height: 90%;
+        height: auto;
+        max-height: 90%;
         padding: 1 2;
     }
+    #panel > VerticalScroll { height: auto; }
     .section { text-style: bold; margin-top: 1; margin-bottom: 1; }
     #todo-title { margin: 0 0 1 0; }
     """
