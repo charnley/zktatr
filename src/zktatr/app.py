@@ -10,6 +10,7 @@ from textual.widgets import Static
 
 from .db import db_path, load_tasks, split_today
 from .models import Task
+from .pick import open_in_editor, pick
 from .tree import Row, build_rows, group_rows
 
 
@@ -46,6 +47,8 @@ class TaskApp(App):
         # Textual binds ctrl+q to quit by default; it clashes with tmux.
         Binding("ctrl+q", "noop", show=False),
         Binding("r", "refresh_tasks", "Refresh", show=False),
+        Binding("enter", "pick", "Open", show=False),
+        Binding("slash", "pick", "Open", show=False),
     ]
 
     POLL_SECONDS = 1.0
@@ -53,6 +56,7 @@ class TaskApp(App):
     def __init__(self, group: str | None = None) -> None:
         super().__init__()
         self.group = group
+        self._pick_rows: list[Row] = []
 
     def compose(self) -> ComposeResult:
         with Vertical(id="panel"):
@@ -84,6 +88,19 @@ class TaskApp(App):
             self._seen = fp
             self.action_refresh_tasks()
 
+    def action_pick(self) -> None:
+        if not self._pick_rows:
+            return
+        try:
+            with self.suspend():
+                paths = pick(self._pick_rows, date.today())
+                if paths:
+                    open_in_editor(paths)
+        except RuntimeError as e:
+            self.notify(str(e), severity="error")
+        self._seen = None  # edits re-index; make sure the next poll reloads
+        self.action_refresh_tasks()
+
     def action_noop(self) -> None:
         pass
 
@@ -102,6 +119,10 @@ class TaskApp(App):
         tasks = load_tasks()
         todo, done = split_today(tasks, today)
         rows = build_rows(tasks, todo)
+        # fzf lists tasks in the same order as the screen.
+        self._pick_rows = (
+            [r for _, g in group_rows(rows) for r in g] if self.group == "tag" else rows
+        )
         self.query_one("#todo", Static).update(
             self._render_todo(rows, today) or "[dim]nothing left, nice[/]"
         )

@@ -107,3 +107,22 @@ def test_group_by_first_tag_children_follow_parent():
         ("w", ["E"]),
         (None, ["D"]),
     ]
+
+
+from zktatr import pick as pk
+
+
+def test_fzf_input_is_path_then_plain_text():
+    a = node("2026-11-11-aaaaaaaa", title="A", tags=["x"], due="2026-11-09", depends=["bbbbbbbb"])
+    b = node("2026-11-11-bbbbbbbb", title="B")
+    todo, _ = split_today([a, b], TODAY)
+    lines = pk.fzf_input(build_rows([a, b], todo), TODAY).splitlines()
+    assert lines[0] == "tasks/2026-11-11-aaaaaaaa.md\t50 A 0/1 overdue 2d #x"
+    assert lines[1].startswith("tasks/2026-11-11-bbbbbbbb.md\t50 └─ B")
+
+
+def test_zk_edit_gets_all_paths_in_one_call(monkeypatch, tmp_path):
+    monkeypatch.setenv("ZK_NOTEBOOK_DIR", str(tmp_path))
+    cmd = pk.zk_edit_command(["tasks/a.md", "tasks/b.md"])
+    assert cmd == ["zk", "edit", "--notebook-dir", str(tmp_path),
+                   str(tmp_path / "tasks/a.md"), str(tmp_path / "tasks/b.md")]
