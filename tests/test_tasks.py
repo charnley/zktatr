@@ -118,7 +118,7 @@ def test_fzf_input_is_path_then_plain_text():
     b = node("2026-11-11-bbbbbbbb", title="B")
     todo, _ = split_today([a, b], TODAY)
     lines = pk.fzf_input(build_rows([a, b], todo), TODAY).splitlines()
-    assert lines[0] == "tasks/2026-11-11-aaaaaaaa.md\t50 A 0/1 overdue 2d #x"
+    assert lines[0] == "tasks/2026-11-11-aaaaaaaa.md\t50 A 0/1 ! #x"
     assert lines[1].startswith("tasks/2026-11-11-bbbbbbbb.md\t50 └─ B")
 
 

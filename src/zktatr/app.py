@@ -29,7 +29,7 @@ def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
     if row.total_deps:
         text += f" [#808080]{row.done_deps}/{row.total_deps}[/]"
     if t.due and t.due < today:
-        text += f" [red]overdue {(today - t.due).days}d[/]"
+        text += " !"
     elif t.due == today:
         text += " [yellow]due today[/]"
     hidden = hide_tag.split() if hide_tag else []

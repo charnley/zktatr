@@ -1,5 +1,7 @@
 # zktatr
 
+![hero](docs/hero.svg)
+
 Task management on top of [zk](https://github.com/zk-org/zk). Tasks are zk notes in
 `<notebook>/tasks` (notebook is in `$ZK_NOTEBOOK_DIR`).
 

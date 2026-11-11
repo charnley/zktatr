@@ -23,7 +23,7 @@ def fzf_input(rows: list[Row], today: date) -> str:
         if r.total_deps:
             text += f" {r.done_deps}/{r.total_deps}"
         if t.due and t.due < today:
-            text += f" overdue {(today - t.due).days}d"
+            text += " !"
         elif t.due == today:
             text += " due today"
         if t.tags:
