@@ -31,3 +31,11 @@ TUI keys: `enter` or `/` pick tasks with fzf, `r` refresh, `ctrl+d` quit.
 Frontmatter fields: `title`, `status` (`open`/`done`), `priority`, `tags`, `depends`
 (subtasks).
 
+# References
+
+This project is very much based on 
+
+- [https://github.com/zk-org/zk](https://github.com/zk-org/zk)
+- [https://github.com/cstein/pytatr](https://github.com/cstein/pytatr)
+- [https://github.com/tsoding/tatr](https://github.com/tsoding/tatr)
+
