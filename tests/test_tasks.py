@@ -93,7 +93,7 @@ def test_duplicate_titles_are_not_resolved_by_title():
 from zktatr.tree import group_rows
 
 
-def test_group_by_first_tag_children_follow_parent():
+def test_group_by_tag_set_children_follow_parent():
     a = node("2026-11-11-aaaaaaaa", title="A", tags=["x", "y"], depends=["bbbbbbbb"])
     b = node("2026-11-11-bbbbbbbb", title="B", tags=["z"])  # own tag ignored
     c = node("2026-11-11-cccccccc", title="C", tags=["x"])
@@ -103,8 +103,9 @@ def test_group_by_first_tag_children_follow_parent():
     todo, _ = split_today(tasks, TODAY)
     groups = group_rows(build_rows(tasks, todo))
     assert [(k, [r.task.title for r in rows]) for k, rows in groups] == [
-        ("x", ["A", "B", "C"]),
+        ("x y", ["A", "B"]),
         ("w", ["E"]),
+        ("x", ["C"]),
         (None, ["D"]),
     ]
 
@@ -181,8 +182,9 @@ def test_priority_100_shows_bang():
         t = node("2026-11-11-aaaaaaaa", title="A", priority=prio)
         return render_task(build_rows([t], [t])[0], TODAY)
 
-    assert "!" in line(100) and "50" not in line(100)
-    assert "!" not in line(50) and "50" in line(50)
+    assert "[dim]![/]" in line(100)
+    for prio in (25, 50, 75):
+        assert "[dim]-[/]" in line(prio) and "!" not in line(prio)
 
 
 def test_fzf_input_includes_finished_with_marker():
@@ -190,4 +192,4 @@ def test_fzf_input_includes_finished_with_marker():
     d = node("2026-11-11-dddddddd", title="D", status="done", tags=["x"])
     rows = build_rows([a], [a]) + [Row(d, 0, "", 0, 0)]
     lines = pk.fzf_input(rows, TODAY).splitlines()
-    assert lines[1] == "tasks/2026-11-11-dddddddd.md\t[X] D #x"
+    assert lines[1] == "tasks/2026-11-11-dddddddd.md\tX D #x"

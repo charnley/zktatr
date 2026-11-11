@@ -97,7 +97,7 @@ def build_rows(all_tasks: list[Task], todo: list[Task]) -> list[Row]:
 
 
 def group_rows(rows: list[Row]) -> list[tuple[str | None, list[Row]]]:
-    """Group rows by the first tag of each top-level task.
+    """Group rows by the full tag set of each top-level task (key: sorted tags joined by a space).
 
     Subtasks stay with their parent, whatever their own tags are. Bigger groups
     come first, then alphabetical; untagged (key None) is always last.
@@ -111,6 +111,6 @@ def group_rows(rows: list[Row]) -> list[tuple[str | None, list[Row]]]:
     groups: dict[str | None, list[Row]] = {}
     for b in blocks:
         tags = b[0].task.tags
-        groups.setdefault(tags[0] if tags else None, []).extend(b)
+        groups.setdefault(" ".join(sorted(tags)) if tags else None, []).extend(b)
 
     return sorted(groups.items(), key=lambda kv: (kv[0] is None, -len(kv[1]), kv[0] or ""))

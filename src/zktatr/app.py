@@ -24,15 +24,16 @@ def escape(text: str) -> str:
 
 def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
     t = row.task
-    pri = f"[dim]{'!' if t.priority >= 100 else t.priority:>3}[/]"
-    text = f"{pri}  [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
+    pri = f"[dim]{'!' if t.priority >= 100 else '-'}[/]"
+    text = f" {pri} [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
     if row.total_deps:
         text += f" [#808080]{row.done_deps}/{row.total_deps}[/]"
     if t.due and t.due < today:
         text += f" [red]overdue {(today - t.due).days}d[/]"
     elif t.due == today:
         text += " [yellow]due today[/]"
-    tags = [x for x in t.tags if x != hide_tag]
+    hidden = hide_tag.split() if hide_tag else []
+    tags = [x for x in t.tags if x not in hidden]
     if tags:
         text += " [#808080]" + escape(" ".join(f"#{x}" for x in tags)) + "[/]"
     return text
@@ -121,7 +122,7 @@ class TaskApp(App):
             return "\n".join(render_task(r, today) for r in rows)
         blocks = []
         for key, group in group_rows(rows):
-            header = f"[bold #808080]{escape(key) if key else 'untagged'} ({len(group)})[/]"
+            header = f"[bold #808080]{escape(key) if key else 'untagged'}[/]"
             lines = "\n".join(render_task(r, today, hide_tag=key) for r in group)
             blocks.append(header + "\n" + lines)
         return "\n\n".join(blocks)
@@ -140,6 +141,6 @@ class TaskApp(App):
         self.query_one("#todo-title", Static).update("Open:")
         self.query_one("#done-title", Static).update("Finished:")
         self.query_one("#done", Static).update(
-            "\n".join(f"[dim]{escape('[X]')}  {escape(t.title)}[/]" for t in done)
+            "\n".join(f"[dim] X {escape(t.title)}[/]" for t in done)
             or "[dim]nothing yet[/]"
         )
