@@ -31,6 +31,7 @@ def main() -> None:
     sub.add_parser("tags", help="list the tags in use, most used first")
     comp = sub.add_parser("completion", help="print a shell completion script")
     comp.add_argument("shell", choices=["zsh"])
+    comp.add_argument("--path", action="store_true", help="print the script's file path instead (for a symlink)")
     if sys.argv[1:2] == ["add"]:
         # Intermixed, so `todo add Fix -p 3 the build @chorus` works; argparse
         # only allows that without subparsers, hence the dedicated parser.
@@ -49,9 +50,9 @@ def main() -> None:
         return
 
     if args.cmd == "completion":
-        from .completion import SCRIPTS
+        from .completion import script, script_path
 
-        print(SCRIPTS[args.shell], end="")
+        print(script_path(args.shell) if args.path else script(args.shell), end="\n" if args.path else "")
         return
 
     if args.cmd == "add":

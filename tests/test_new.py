@@ -234,3 +234,16 @@ def test_add_without_e_does_not_open_anything(notebook, monkeypatch):
     main()
     assert opened == []
     assert "Untitled" not in next((notebook / "tasks").glob("*.md")).read_text()
+
+
+def test_completion_is_a_real_file_matching_the_printed_script():
+    import subprocess
+
+    from zktatr.completion import script, script_path
+
+    p = script_path("zsh")
+    assert p.is_file() and p.name == "_todo"
+    text = script("zsh")
+    assert text.startswith("#compdef todo\n") and "ln -sf" in text
+    if shutil.which("zsh"):
+        assert subprocess.run(["zsh", "-n", str(p)]).returncode == 0  # parses
