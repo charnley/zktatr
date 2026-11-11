@@ -63,7 +63,9 @@ class TaskApp(App):
     POLL_SECONDS = 1.0
 
     def __init__(self, group: str | None = None) -> None:
-        super().__init__()
+        # ansi_color: use the terminal's own colors; the default theme paints a
+        # fixed background that looks too bright under tmux.
+        super().__init__(ansi_color=True)
         self.group = group
         self._pick_rows: list[Row] = []
 
