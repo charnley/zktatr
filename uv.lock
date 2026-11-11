@@ -352,29 +352,6 @@ wheels = [
 ]
 
 [[package]]
-name = "task-tui"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "sqlmodel" },
-    { name = "textual" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "sqlmodel", specifier = ">=0.0.49" },
-    { name = "textual", specifier = ">=8.2.8" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.2.0" }]
-
-[[package]]
 name = "textual"
 version = "8.2.8"
 source = { registry = "https://pypi.org/simple" }
@@ -411,3 +388,26 @@ sdist = { url = "https://files.pythonhosted.org/packages/ff/50/0195198eb1d75bab7
 wheels = [
     { url = "https://files.pythonhosted.org/packages/de/0c/ea2544850a7c135e15033a5c7a8e7211136184b7ae63e2239d557c2b3019/typing_inspection-0.4.5-py3-none-any.whl", hash = "sha256:bc210535442b39e1bf2805e0c7a17dfd6a4ace760c84c7f7d16245d23a6b1c39", size = 14874, upload-time = "2026-11-04T14:13:22.616Z" },
 ]
+
+[[package]]
+name = "zktatr"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "sqlmodel" },
+    { name = "textual" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "sqlmodel", specifier = ">=0.0.49" },
+    { name = "textual", specifier = ">=8.2.8" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.2.0" }]

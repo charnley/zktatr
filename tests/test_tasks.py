@@ -1,7 +1,7 @@
 from datetime import date
 
-from task_tui.db import split_today
-from task_tui.models import Note, Task
+from zktatr.db import split_today
+from zktatr.models import Note, Task
 
 TODAY = date(2026, 11, 11)
 
@@ -40,7 +40,7 @@ def test_messy_frontmatter():
 
 
 # --- subtasks / dependencies -------------------------------------------------
-from task_tui.tree import build_rows
+from zktatr.tree import build_rows
 
 
 def node(stem, **kw) -> Task:
