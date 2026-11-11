@@ -1,5 +1,4 @@
 """Engine and queries against the zk notebook database."""
-from __future__ import annotations
 
 import os
 from datetime import date

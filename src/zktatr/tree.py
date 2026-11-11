@@ -6,7 +6,6 @@ stem (`2026-11-11-6rbuh8gy`), the trailing id (`6rbuh8gy`), a path
 (`tasks/....md`), a `[[wikilink]]` of any of those, or a unique title.
 Unknown references are ignored.
 """
-from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -95,3 +94,23 @@ def build_rows(all_tasks: list[Task], todo: list[Task]) -> list[Row]:
         if t.path not in placed:
             walk(t, 0, "", True, frozenset())
     return rows
+
+
+def group_rows(rows: list[Row]) -> list[tuple[str | None, list[Row]]]:
+    """Group rows by the first tag of each top-level task.
+
+    Subtasks stay with their parent, whatever their own tags are. Bigger groups
+    come first, then alphabetical; untagged (key None) is always last.
+    """
+    blocks: list[list[Row]] = []
+    for r in rows:
+        if r.depth == 0:
+            blocks.append([])
+        blocks[-1].append(r)
+
+    groups: dict[str | None, list[Row]] = {}
+    for b in blocks:
+        tags = b[0].task.tags
+        groups.setdefault(tags[0] if tags else None, []).extend(b)
+
+    return sorted(groups.items(), key=lambda kv: (kv[0] is None, -len(kv[1]), kv[0] or ""))

@@ -1,5 +1,4 @@
 """Textual TUI: today's tasks in a centered panel."""
-from __future__ import annotations
 
 from datetime import date
 
@@ -11,10 +10,10 @@ from textual.widgets import Static
 
 from .db import db_path, load_tasks, split_today
 from .models import Task
-from .tree import Row, build_rows
+from .tree import Row, build_rows, group_rows
 
 
-def render_task(row: Row, today: date) -> str:
+def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
     t = row.task
     text = f"[dim]{t.priority:>3}[/]  [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
     if row.total_deps:
@@ -23,8 +22,9 @@ def render_task(row: Row, today: date) -> str:
         text += f" [red]overdue {(today - t.due).days}d[/]"
     elif t.due == today:
         text += " [yellow]due today[/]"
-    if t.tags:
-        text += " [#808080]" + escape(" ".join(f"#{x}" for x in t.tags)) + "[/]"
+    tags = [x for x in t.tags if x != hide_tag]
+    if tags:
+        text += " [#808080]" + escape(" ".join(f"#{x}" for x in tags)) + "[/]"
     return text
 
 
@@ -39,8 +39,6 @@ class TaskApp(App):
         padding: 1 2;
     }
     .section { text-style: bold; margin-top: 1; }
-    #todo-title { margin-top: 0; }
-    #todo-title { color: $warning; }
     #done-title { color: $success; }
     """
     BINDINGS = [
@@ -52,10 +50,13 @@ class TaskApp(App):
 
     POLL_SECONDS = 1.0
 
+    def __init__(self, group: str | None = None) -> None:
+        super().__init__()
+        self.group = group
+
     def compose(self) -> ComposeResult:
         with Vertical(id="panel"):
             with VerticalScroll():
-                yield Static(id="todo-title", classes="section")
                 yield Static(id="todo")
                 yield Static(id="done-title", classes="section")
                 yield Static(id="done")
@@ -86,14 +87,23 @@ class TaskApp(App):
     def action_noop(self) -> None:
         pass
 
+    def _render_todo(self, rows: list[Row], today: date) -> str:
+        if self.group != "tag":
+            return "\n".join(render_task(r, today) for r in rows)
+        blocks = []
+        for key, group in group_rows(rows):
+            header = f"[bold #808080]{escape(key) if key else 'untagged'} ({len(group)})[/]"
+            lines = "\n".join(render_task(r, today, hide_tag=key) for r in group)
+            blocks.append(header + "\n" + lines)
+        return "\n\n".join(blocks)
+
     def action_refresh_tasks(self) -> None:
         today = date.today()
         tasks = load_tasks()
         todo, done = split_today(tasks, today)
         rows = build_rows(tasks, todo)
-        self.query_one("#todo-title", Static).update(f"To do ({len(todo)})")
         self.query_one("#todo", Static).update(
-            "\n".join(render_task(r, today) for r in rows) or "[dim]nothing left, nice[/]"
+            self._render_todo(rows, today) or "[dim]nothing left, nice[/]"
         )
         self.query_one("#done-title", Static).update(f"Done today ({len(done)})")
         self.query_one("#done", Static).update(

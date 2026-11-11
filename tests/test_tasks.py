@@ -88,3 +88,22 @@ def test_duplicate_titles_are_not_resolved_by_title():
     d1 = node("2026-11-10-dddddddd", title="Dup")
     d2 = node("2026-11-11-eeeeeeee", title="Dup")
     assert [d for _, d in shape([a, d1, d2])] == [0, 0, 0]
+
+
+from zktatr.tree import group_rows
+
+
+def test_group_by_first_tag_children_follow_parent():
+    a = node("2026-11-11-aaaaaaaa", title="A", tags=["x", "y"], depends=["bbbbbbbb"])
+    b = node("2026-11-11-bbbbbbbb", title="B", tags=["z"])  # own tag ignored
+    c = node("2026-11-11-cccccccc", title="C", tags=["x"])
+    d = node("2026-11-11-dddddddd", title="D")
+    e = node("2026-11-11-eeeeeeee", title="E", tags=["w"])
+    tasks = [a, b, c, d, e]
+    todo, _ = split_today(tasks, TODAY)
+    groups = group_rows(build_rows(tasks, todo))
+    assert [(k, [r.task.title for r in rows]) for k, rows in groups] == [
+        ("x", ["A", "B", "C"]),
+        ("w", ["E"]),
+        (None, ["D"]),
+    ]

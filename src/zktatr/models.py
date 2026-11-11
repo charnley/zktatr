@@ -4,10 +4,9 @@ zk owns the `notes` table; we never create or migrate it. The markdown files are
 the source of truth, so treat writes through this layer with care: zk will
 overwrite the index from the files on the next `zk index`.
 """
-from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Self
 
 from pydantic import BaseModel, Field as PField, field_validator
 from sqlalchemy import JSON, Column
@@ -93,7 +92,7 @@ class Task(BaseModel):
         return list(flat(v))
 
     @classmethod
-    def from_note(cls, note: Note) -> Task:
+    def from_note(cls, note: Note) -> Self:
         m = note.meta or {}
         # `done:` is not in the template yet; for finished tasks fall back to
         # the note's modified date so "done today" works before it is.
