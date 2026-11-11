@@ -2,7 +2,6 @@
 
 from datetime import date
 
-from rich.markup import escape
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
@@ -12,6 +11,15 @@ from .db import db_path, load_tasks, split_today
 from .models import Task
 from .pick import open_in_editor, pick
 from .tree import Row, build_rows, group_rows
+
+
+def escape(text: str) -> str:
+    """Make `text` literal in Textual markup.
+
+    Neither rich's nor textual's `escape` handles tags like `[X]` or `[WIP]`,
+    which Textual would swallow, so escape every opening bracket.
+    """
+    return text.replace("[", "\\[")
 
 
 def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
@@ -40,7 +48,6 @@ class TaskApp(App):
         padding: 1 2;
     }
     .section { text-style: bold; margin-top: 1; }
-    #done-title { color: $success; }
     """
     BINDINGS = [
         Binding("ctrl+d", "quit", "Quit", show=False),
@@ -126,8 +133,8 @@ class TaskApp(App):
         self.query_one("#todo", Static).update(
             self._render_todo(rows, today) or "[dim]nothing left, nice[/]"
         )
-        self.query_one("#done-title", Static).update(f"Done today ({len(done)})")
+        self.query_one("#done-title", Static).update("Finished:")
         self.query_one("#done", Static).update(
-            "\n".join(f"[green]✓[/]    {escape(t.title)}" for t in done)
+            "\n".join(f"[dim]{escape('[X]')}  {escape(t.title)}[/]" for t in done)
             or "[dim]nothing yet[/]"
         )

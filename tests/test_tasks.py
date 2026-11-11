@@ -126,3 +126,49 @@ def test_zk_edit_gets_all_paths_in_one_call(monkeypatch, tmp_path):
     cmd = pk.zk_edit_command(["tasks/a.md", "tasks/b.md"])
     assert cmd == ["zk", "edit", "--notebook-dir", str(tmp_path),
                    str(tmp_path / "tasks/a.md"), str(tmp_path / "tasks/b.md")]
+
+
+import time
+from datetime import datetime
+
+from zktatr.models import local_date
+
+
+def test_done_and_edited_today_counts_even_without_done_field():
+    mod = datetime.now().astimezone().isoformat(sep=" ")
+    t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"status": "done"}, modified=mod))
+    todo, done = split_today([t], date.today())
+    assert not todo and done == [t]
+
+
+def test_open_task_edited_today_is_not_done_today():
+    mod = datetime.now().astimezone().isoformat(sep=" ")
+    t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"status": "open"}, modified=mod))
+    assert split_today([t], date.today())[1] == []
+
+
+def test_done_edited_earlier_is_not_done_today():
+    t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"status": "done"},
+                            modified="2026-11-01 10:00:00.123456789+00:00"))
+    assert split_today([t], TODAY)[1] == []
+
+
+def test_modified_is_converted_from_utc_to_local_date(monkeypatch):
+    monkeypatch.setenv("TZ", "Europe/Copenhagen")
+    time.tzset()
+    try:
+        # 23:30 UTC on the 10th is 00:30 on the 11th in Copenhagen (UTC+1).
+        assert local_date("2026-11-10 23:30:00.972759539+00:00") == date(2026, 11, 11)
+        assert local_date("garbage") is None and local_date("") is None
+    finally:
+        monkeypatch.undo()
+        time.tzset()
+
+
+def test_markup_escape_keeps_bracketed_text():
+    from textual.content import Content
+
+    from zktatr.app import escape
+
+    for s in ["[X] done", "[WIP] fix", "[workflow] onboard", "plain"]:
+        assert Content.from_markup(escape(s)).plain == s

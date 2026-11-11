@@ -35,10 +35,11 @@ def split_today(tasks: list[Task], today: date) -> tuple[list[Task], list[Task]]
     """(to do, done today).
 
     To do: not done, and no due date or due <= today. Overdue first, then by
-    priority (high first), then title. Done: finished on `today`.
+    priority (high first), then title. Done: finished on `today` (see
+    `Task.finished_on`).
     """
     todo = [t for t in tasks if not t.is_done and (t.due is None or t.due <= today)]
-    done = [t for t in tasks if t.is_done and t.done == today]
+    done = [t for t in tasks if t.finished_on(today)]
     todo.sort(key=lambda t: (t.due is None, t.due or today, -t.priority, t.title))
     done.sort(key=lambda t: t.title)
     return todo, done

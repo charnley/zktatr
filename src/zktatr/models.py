@@ -5,12 +5,29 @@ the source of truth, so treat writes through this layer with care: zk will
 overwrite the index from the files on the next `zk index`.
 """
 
+import re
 from datetime import date, datetime
 from typing import Any, Self
 
 from pydantic import BaseModel, Field as PField, field_validator
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
+
+
+def local_date(ts: str | None) -> date | None:
+    """Local calendar date of a zk timestamp.
+
+    zk stores `modified` in UTC with nanoseconds (`2026-11-10 23:30:00.123456789+00:00`),
+    so convert to local time before taking the date, and trim to the 6 fractional
+    digits datetime understands.
+    """
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(re.sub(r"(\.\d{6})\d+", r"\1", ts.strip()))
+    except ValueError:
+        return None
+    return (dt.astimezone() if dt.tzinfo else dt).date()
 
 
 class Note(SQLModel, table=True):
@@ -41,6 +58,7 @@ class Task(BaseModel):
     priority: int = 50
     due: date | None = None
     done: date | None = None
+    modified: date | None = None  # local date of the last edit (from the index)
     tags: list[str] = PField(default_factory=list)
     link: str | None = None
     depends: list[str] = PField(default_factory=list)
@@ -94,20 +112,22 @@ class Task(BaseModel):
     @classmethod
     def from_note(cls, note: Note) -> Self:
         m = note.meta or {}
-        # `done:` is not in the template yet; for finished tasks fall back to
-        # the note's modified date so "done today" works before it is.
-        done = m.get("done") or (note.modified if str(m.get("status")) == "done" else None)
         return cls(
             path=note.path,
             title=note.title,
             status=m.get("status"),
             priority=m.get("priority"),
             due=m.get("due"),
-            done=done,
+            done=m.get("done"),
+            modified=local_date(note.modified),
             tags=m.get("tags"),
             link=m.get("link"),
             depends=m.get("depends"),
         )
+
+    def finished_on(self, day: date) -> bool:
+        """Done, and either marked done on `day` or last edited on `day`."""
+        return self.is_done and day in (self.done, self.modified)
 
     @property
     def is_done(self) -> bool:
