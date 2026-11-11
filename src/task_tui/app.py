@@ -9,12 +9,16 @@ from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Static
 
-from .db import db_path, tasks_today
+from .db import db_path, load_tasks, split_today
 from .models import Task
+from .tree import Row, build_rows
 
 
-def render_task(t: Task, today: date) -> str:
-    text = f"[dim]{t.priority:>3}[/]  {escape(t.title)}"
+def render_task(row: Row, today: date) -> str:
+    t = row.task
+    text = f"[dim]{t.priority:>3}[/]  [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
+    if row.total_deps:
+        text += f" [#808080]{row.done_deps}/{row.total_deps}[/]"
     if t.due and t.due < today:
         text += f" [red]overdue {(today - t.due).days}d[/]"
     elif t.due == today:
@@ -84,10 +88,12 @@ class TaskApp(App):
 
     def action_refresh_tasks(self) -> None:
         today = date.today()
-        todo, done = tasks_today(today)
+        tasks = load_tasks()
+        todo, done = split_today(tasks, today)
+        rows = build_rows(tasks, todo)
         self.query_one("#todo-title", Static).update(f"To do ({len(todo)})")
         self.query_one("#todo", Static).update(
-            "\n".join(render_task(t, today) for t in todo) or "[dim]nothing left, nice[/]"
+            "\n".join(render_task(r, today) for r in rows) or "[dim]nothing left, nice[/]"
         )
         self.query_one("#done-title", Static).update(f"Done today ({len(done)})")
         self.query_one("#done", Static).update(

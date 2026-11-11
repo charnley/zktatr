@@ -44,6 +44,7 @@ class Task(BaseModel):
     done: date | None = None
     tags: list[str] = PField(default_factory=list)
     link: str | None = None
+    depends: list[str] = PField(default_factory=list)
 
     @field_validator("due", "done", mode="before")
     @classmethod
@@ -77,6 +78,20 @@ class Task(BaseModel):
             v = v[0] if v else None
         return str(v) if v else None
 
+    @field_validator("depends", mode="before")
+    @classmethod
+    def _depends(cls, v: Any) -> list[str]:
+        # YAML turns `depends: [[a]]` (wikilink style) into nested lists, and a
+        # bare `depends: a` into a string; accept all of those.
+        def flat(x: Any):
+            if isinstance(x, (list, tuple)):
+                for i in x:
+                    yield from flat(i)
+            elif x:
+                yield str(x)
+
+        return list(flat(v))
+
     @classmethod
     def from_note(cls, note: Note) -> Task:
         m = note.meta or {}
@@ -92,6 +107,7 @@ class Task(BaseModel):
             done=done,
             tags=m.get("tags"),
             link=m.get("link"),
+            depends=m.get("depends"),
         )
 
     @property

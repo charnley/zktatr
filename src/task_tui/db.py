@@ -45,6 +45,11 @@ def split_today(tasks: list[Task], today: date) -> tuple[list[Task], list[Task]]
     return todo, done
 
 
+def load_tasks(engine: Engine | None = None) -> list[Task]:
+    with Session(engine or make_engine()) as session:
+        return all_tasks(session)
+
+
 def tasks_today(today: date | None = None, engine: Engine | None = None):
     with Session(engine or make_engine()) as session:
         return split_today(all_tasks(session), today or date.today())
