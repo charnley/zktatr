@@ -34,7 +34,7 @@ _todo() {
       elif compset -P '[@#]'; then
         _todo_tags
       elif [[ $PREFIX == -* ]]; then
-        compadd -- -t --tag -p --priority
+        compadd -- -t --tag -p --priority -e --edit
       fi
       ;;
     completion) compadd zsh ;;

@@ -20,6 +20,7 @@ from .tags import TAG_NAME, known_spellings
 
 TAG_WORD = re.compile(r"[#@]([A-Za-z][\w-]*)")
 PLUSES = re.compile(r"\++")
+EDIT_MARKER = "Untitled"  # the word zk's editor command searches for; see `todo add -e`
 PRIORITY_STEP = 25  # each `+` adds 25%, so `++++` is 100
 FRONTMATTER = re.compile(r"(---\n.*?\n---\n)(.*)", re.S)
 
@@ -88,11 +89,12 @@ def render(
 
 
 def create_task(
-    title: str, tags: list[str] | None = None, priority: int | None = None
+    title: str, tags: list[str] | None = None, priority: int | None = None, body: str = ""
 ) -> Path:
     """Create a task note; returns its absolute path.
 
-    `priority=None` leaves the template's default in place.
+    `priority=None` leaves the template's default in place. `body` goes where the
+    template puts `{{content}}`.
     """
     title = " ".join(title.split())
     if not title:
@@ -108,8 +110,8 @@ def create_task(
     for _ in range(5):  # a clash on the random id is vanishingly rare, but cheap to handle
         res = subprocess.run(
             [zk, "new", str(nb / "tasks"), "--notebook-dir", str(nb), "--group", "task",
-             "--title", quoted, "--no-input", "--dry-run"],
-            capture_output=True, text=True,
+             "--title", quoted, "--no-input", "--dry-run", *(["-i"] if body else [])],
+            capture_output=True, text=True, input=body or None,
         )  # fmt: skip
         lines = res.stderr.strip().splitlines()
         if res.returncode != 0 or not lines:

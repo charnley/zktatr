@@ -7,6 +7,10 @@ def add_arguments(p: argparse.ArgumentParser) -> None:
                    help="title; trailing @words become tags and +++ sets priority (each + is 25%%)")  # fmt: skip
     p.add_argument("-t", "--tag", action="append", default=[], help="add a tag (repeatable)")
     p.add_argument(
+        "-e", "--edit", action="store_true",
+        help="open the new task in zk's editor, with the cursor on a placeholder 'Untitled'",
+    )  # fmt: skip
+    p.add_argument(
         "-p", "--priority", type=int, choices=[1, 2, 3, 4], metavar="N",
         help="priority as a number of '+' (1-4 = 25-100%%); same as ++++",
     )  # fmt: skip
@@ -51,14 +55,26 @@ def main() -> None:
         return
 
     if args.cmd == "add":
-        from .new import create_task, parse_words, priority_from_pluses
+        from .new import EDIT_MARKER, create_task, parse_words, priority_from_pluses
 
         title, tags, pluses = parse_words(args.words)
         try:
-            path = create_task(title, tags + args.tag, priority_from_pluses(max(pluses, args.priority or 0)))
+            path = create_task(
+                title,
+                tags + args.tag,
+                priority_from_pluses(max(pluses, args.priority or 0)),
+                body=EDIT_MARKER if args.edit else "",
+            )
         except (ValueError, RuntimeError) as e:
             sys.exit(f"todo: {e}")
         print(f"added {path.name}: {title}")
+        if args.edit:
+            from .pick import open_in_editor
+
+            try:
+                open_in_editor([str(path)])  # zk edit: your configured editor, re-indexes on exit
+            except RuntimeError as e:
+                sys.exit(f"todo: {e}")
         return
 
     from .app import TaskApp

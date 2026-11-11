@@ -194,3 +194,43 @@ def test_priority_written_only_when_given(notebook):
 
     todo, _ = tasks_today()
     assert {t.title: t.priority for t in todo} == {"plain": 50, "urgent": 100}
+
+
+@needs_zk
+def test_body_lands_in_the_note_and_is_indexed(notebook):
+    path = create_task("with body", body="Untitled")
+    text = path.read_text()
+    assert "# with body\n\nUntitled\n" in text
+    assert "Untitled" not in create_task("no body").read_text()
+    assert sorted(t for t, _ in indexed(notebook)) == ["no body", "with body"]
+
+
+@needs_zk
+def test_add_dash_e_creates_then_opens_in_editor(notebook, monkeypatch, capsys):
+    import sys
+
+    opened = []
+    monkeypatch.setattr("zktatr.pick.open_in_editor", lambda paths: opened.extend(paths))
+    monkeypatch.setattr(sys, "argv", ["todo", "add", "Call Anna: re budget", "-e", "@chorus"])
+    from zktatr import main
+
+    main()
+    [path] = opened
+    text = open(path).read()
+    assert "title: \"Call Anna: re budget\"" in text and "tags: [chorus]" in text
+    assert text.rstrip().endswith("Untitled")
+    assert "added" in capsys.readouterr().out
+
+
+@needs_zk
+def test_add_without_e_does_not_open_anything(notebook, monkeypatch):
+    import sys
+
+    opened = []
+    monkeypatch.setattr("zktatr.pick.open_in_editor", lambda paths: opened.extend(paths))
+    monkeypatch.setattr(sys, "argv", ["todo", "add", "quiet one"])
+    from zktatr import main
+
+    main()
+    assert opened == []
+    assert "Untitled" not in next((notebook / "tasks").glob("*.md")).read_text()
