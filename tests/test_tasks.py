@@ -40,7 +40,7 @@ def test_messy_frontmatter():
 
 
 # --- subtasks / dependencies -------------------------------------------------
-from zktatr.tree import build_rows
+from zktatr.tree import Row, build_rows
 
 
 def node(stem, **kw) -> Task:
@@ -172,3 +172,22 @@ def test_markup_escape_keeps_bracketed_text():
 
     for s in ["[X] done", "[WIP] fix", "[workflow] onboard", "plain"]:
         assert Content.from_markup(escape(s)).plain == s
+
+
+def test_priority_100_shows_bang():
+    from zktatr.app import render_task
+
+    def line(prio):
+        t = node("2026-11-11-aaaaaaaa", title="A", priority=prio)
+        return render_task(build_rows([t], [t])[0], TODAY)
+
+    assert "!" in line(100) and "50" not in line(100)
+    assert "!" not in line(50) and "50" in line(50)
+
+
+def test_fzf_input_includes_finished_with_marker():
+    a = node("2026-11-11-aaaaaaaa", title="A")
+    d = node("2026-11-11-dddddddd", title="D", status="done", tags=["x"])
+    rows = build_rows([a], [a]) + [Row(d, 0, "", 0, 0)]
+    lines = pk.fzf_input(rows, TODAY).splitlines()
+    assert lines[1] == "tasks/2026-11-11-dddddddd.md\t[X] D #x"

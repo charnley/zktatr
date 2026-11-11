@@ -19,7 +19,7 @@ def fzf_input(rows: list[Row], today: date) -> str:
     lines = []
     for r in rows:
         t = r.task
-        text = f"{t.priority:>3}  {r.prefix}{t.title}"
+        text = f"[X]  {t.title}" if t.is_done else f"{t.priority:>3}  {r.prefix}{t.title}"
         if r.total_deps:
             text += f" {r.done_deps}/{r.total_deps}"
         if t.due and t.due < today:

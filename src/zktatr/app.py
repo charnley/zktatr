@@ -24,7 +24,8 @@ def escape(text: str) -> str:
 
 def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
     t = row.task
-    text = f"[dim]{t.priority:>3}[/]  [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
+    pri = f"[dim]{'!' if t.priority >= 100 else t.priority:>3}[/]"
+    text = f"{pri}  [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
     if row.total_deps:
         text += f" [#808080]{row.done_deps}/{row.total_deps}[/]"
     if t.due and t.due < today:
@@ -47,7 +48,8 @@ class TaskApp(App):
         height: 90%;
         padding: 1 2;
     }
-    .section { text-style: bold; margin-top: 1; }
+    .section { text-style: bold; margin-top: 1; margin-bottom: 1; }
+    #todo-title { margin: 0 0 1 0; }
     """
     BINDINGS = [
         Binding("ctrl+d", "quit", "Quit", show=False),
@@ -68,6 +70,7 @@ class TaskApp(App):
     def compose(self) -> ComposeResult:
         with Vertical(id="panel"):
             with VerticalScroll():
+                yield Static(id="todo-title", classes="section")
                 yield Static(id="todo")
                 yield Static(id="done-title", classes="section")
                 yield Static(id="done")
@@ -126,13 +129,13 @@ class TaskApp(App):
         tasks = load_tasks()
         todo, done = split_today(tasks, today)
         rows = build_rows(tasks, todo)
-        # fzf lists tasks in the same order as the screen.
-        self._pick_rows = (
-            [r for _, g in group_rows(rows) for r in g] if self.group == "tag" else rows
-        )
+        # fzf lists tasks in the same order as the screen: open, then finished.
+        open_rows = [r for _, g in group_rows(rows) for r in g] if self.group == "tag" else rows
+        self._pick_rows = open_rows + [Row(t, 0, "", 0, 0) for t in done]
         self.query_one("#todo", Static).update(
             self._render_todo(rows, today) or "[dim]nothing left, nice[/]"
         )
+        self.query_one("#todo-title", Static).update("Open:")
         self.query_one("#done-title", Static).update("Finished:")
         self.query_one("#done", Static).update(
             "\n".join(f"[dim]{escape('[X]')}  {escape(t.title)}[/]" for t in done)
