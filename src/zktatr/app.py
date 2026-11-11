@@ -144,5 +144,6 @@ class TaskApp(App):
         self.query_one("#done-title", Static).update("Finished:")
         self.query_one("#done", Static).update(
             "\n".join(f"[dim] X {escape(t.title)}[/]" for t in done)
-            or "[dim]nothing yet[/]"
         )
+        self.query_one("#done-title").display = bool(done)
+        self.query_one("#done").display = bool(done)
