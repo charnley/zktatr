@@ -17,12 +17,21 @@ make install-completion   # zsh completion (oh-my-zsh)
 ## Usage
 
 ```sh
-todo                              # TUI with today's tasks
+todo                              # TUI with all open tasks
+todo today                        # TUI with tasks due today + overdue
 todo tags                         # tags in use
 todo add Fix the build            # add a task
 todo add Fix the build @tag1 @tag2 ++   # trailing @tags and + priority (each + = 25)
 todo add Fix the build -t tag1 -p 3 -e  # flags; -e opens the editor
+todo add Pay rent -d tomorrow           # due date; default is today
+todo add Plan Q1 -d "next monday"       # GNU date syntax, quote it if it has spaces
+todo add Review PR --link https://github.com/org/repo/pull/1   # attach a link
+todo add Review -d "next month"         # also: "+3 days", "friday", 2026-11-20
 ```
+
+New tasks are due today unless you pass `-d`. `todo` and `todo today` sort the same
+way (priority, then title); overdue tasks are marked with `!`. `-d` needs GNU date
+(`brew install coreutils` on macOS, gives `gdate`).
 
 TUI keys: `enter` or `/` pick tasks with fzf, `r` refresh, `ctrl+d` quit.
 

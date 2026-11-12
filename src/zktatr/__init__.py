@@ -11,13 +11,21 @@ def add_arguments(p: argparse.ArgumentParser) -> None:
         help="open the new task in zk's editor, with the cursor on a placeholder 'Untitled'",
     )  # fmt: skip
     p.add_argument(
+        "-d", "--due", metavar="DATE",
+        help="due date, GNU date style: 'tomorrow', 'next monday', 'next month', 2026-11-20 "
+             "(quote it if it has spaces; default: today)",
+    )  # fmt: skip
+    p.add_argument("--link", metavar="URL", help="link to attach to the task (a URL, ticket, ...)")
+    p.add_argument(
         "-p", "--priority", type=int, choices=[1, 2, 3, 4], metavar="N",
         help="priority as a number of '+' (1-4 = 25-100%%); same as ++++",
     )  # fmt: skip
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="todo", description="Today's zk tasks")
+    parser = argparse.ArgumentParser(
+        prog="todo", description="zk tasks: all open ones, or `todo today` for due today and overdue"
+    )
     parser.add_argument(
         "--group",
         nargs="?",
@@ -28,6 +36,7 @@ def main() -> None:
     sub = parser.add_subparsers(dest="cmd")
     add = sub.add_parser("add", help="add a task: todo add Fix the build @chorus +++")
     add_arguments(add)
+    sub.add_parser("today", help="tasks due today and overdue")
     sub.add_parser("tags", help="list the tags in use, most used first")
     comp = sub.add_parser("completion", help="print a shell completion script")
     comp.add_argument("shell", choices=["zsh"])
@@ -56,19 +65,25 @@ def main() -> None:
         return
 
     if args.cmd == "add":
+        from datetime import date
+
+        from .dates import parse_due
         from .new import EDIT_MARKER, create_task, parse_words, priority_from_pluses
 
         title, tags, pluses = parse_words(args.words)
         try:
+            due = parse_due(args.due) if args.due else date.today()
             path = create_task(
                 title,
                 tags + args.tag,
                 priority_from_pluses(max(pluses, args.priority or 0)),
                 body=EDIT_MARKER if args.edit else "",
+                due=due,
+                link=args.link,
             )
         except (ValueError, RuntimeError) as e:
             sys.exit(f"todo: {e}")
-        print(f"added {path.name}: {title}")
+        print(f"added {path.name}: {title} (due {due})")
         if args.edit:
             from .pick import open_in_editor
 
@@ -80,4 +95,4 @@ def main() -> None:
 
     from .app import TaskApp
 
-    TaskApp(group=args.group).run()
+    TaskApp(group=args.group, only_today=args.cmd == "today").run()

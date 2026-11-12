@@ -15,6 +15,7 @@ _todo_tags() {
 _todo() {
   if (( CURRENT == 2 )); then
     local -a cmds=(
+      'today:tasks due today and overdue'
       'add:add a task, e.g. todo add Fix the build @chorus +++'
       'tags:list the tags in use'
       'completion:print a shell completion script'
@@ -27,12 +28,14 @@ _todo() {
     add)
       if [[ $words[CURRENT-1] == (-p|--priority) ]]; then
         compadd -- 1 2 3 4
+      elif [[ $words[CURRENT-1] == (-d|--due) ]]; then
+        compadd -- tomorrow 'next monday' 'next week' 'next month'
       elif [[ $words[CURRENT-1] == (-t|--tag) ]]; then
         _todo_tags
       elif compset -P '[@#]'; then
         _todo_tags
       elif [[ $PREFIX == -* ]]; then
-        compadd -- -t --tag -p --priority -e --edit
+        compadd -- -t --tag -p --priority -d --due --link -e --edit
       fi
       ;;
     completion) compadd zsh ;;

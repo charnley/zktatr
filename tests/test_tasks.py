@@ -1,6 +1,6 @@
 from datetime import date
 
-from zktatr.db import split_today
+from zktatr.db import split_open, split_today
 from zktatr.models import Note, Task
 
 TODAY = date(2026, 11, 11)
@@ -10,19 +10,26 @@ def task(**kw) -> Task:
     return Task.from_note(Note(path="tasks/x.md", title=kw.pop("title", "t"), meta=kw))
 
 
-def test_no_due_date_counts_as_todo():
-    todo, done = split_today([task(status="open")], TODAY)
-    assert len(todo) == 1 and not done
-
-
-def test_future_due_hidden_overdue_first():
+def test_open_shows_every_open_task_sorted_by_priority():
     ts = [
-        task(title="future", due="2026-11-12"),
-        task(title="late", due="2026-11-09", priority=1),
+        task(title="future", due="2026-11-12", priority=10),
+        task(title="late", due="2026-11-09", priority=20),
+        task(title="nodue", priority=90),
+        task(title="done", status="done", done="2026-11-01"),
+    ]
+    todo, _ = split_open(ts, TODAY)
+    assert [t.title for t in todo] == ["nodue", "late", "future"]
+
+
+def test_today_is_due_today_and_overdue_same_order_as_open():
+    ts = [
+        task(title="future", due="2026-11-12", priority=99),
+        task(title="late", due="2026-11-09", priority=20),
+        task(title="now", due="2026-11-11", priority=80),
         task(title="nodue", priority=90),
     ]
     todo, _ = split_today(ts, TODAY)
-    assert [t.title for t in todo] == ["late", "nodue"]
+    assert [t.title for t in todo] == ["now", "late"]  # priority, not overdue-first
 
 
 def test_done_today_only():
@@ -30,8 +37,9 @@ def test_done_today_only():
         task(title="a", status="done", done="2026-11-11"),
         task(title="b", status="done", done="2026-11-10"),
     ]
-    todo, done = split_today(ts, TODAY)
-    assert not todo and [t.title for t in done] == ["a"]
+    for split in (split_open, split_today):
+        todo, done = split(ts, TODAY)
+        assert not todo and [t.title for t in done] == ["a"]
 
 
 def test_messy_frontmatter():
@@ -47,8 +55,8 @@ def node(stem, **kw) -> Task:
     return Task.from_note(Note(path=f"tasks/{stem}.md", title=kw.pop("title", stem), meta=kw))
 
 
-def shape(tasks, today=TODAY):
-    todo, _ = split_today(tasks, today)
+def shape(tasks, today=TODAY, split=split_open):
+    todo, _ = split(tasks, today)
     return [(r.task.title, r.depth) for r in build_rows(tasks, todo)]
 
 
@@ -64,16 +72,17 @@ def test_done_subtask_hidden_but_counted():
     a = node("2026-11-11-aaaaaaaa", title="A", depends=["bbbbbbbb", "cccccccc"])
     b = node("2026-11-11-bbbbbbbb", title="B", status="done", done="2026-11-01")
     c = node("2026-11-11-cccccccc", title="C")
-    todo, _ = split_today([a, b, c], TODAY)
+    todo, _ = split_open([a, b, c], TODAY)
     rows = build_rows([a, b, c], todo)
     assert [(r.task.title, r.depth) for r in rows] == [("A", 0), ("C", 1)]
     assert (rows[0].done_deps, rows[0].total_deps) == (1, 2)
 
 
 def test_child_with_future_due_hidden_not_orphaned_parent():
-    a = node("2026-11-11-aaaaaaaa", title="A")
+    a = node("2026-11-11-aaaaaaaa", title="A", due="2026-11-11")
     b = node("2026-11-11-bbbbbbbb", title="B", depends=["aaaaaaaa"], due="2026-12-01")
-    assert shape([a, b]) == [("A", 0)]
+    assert shape([a, b], split=split_today) == [("A", 0)]
+    assert shape([a, b]) == [("B", 0), ("A", 1)]  # `todo` shows everything
 
 
 def test_cycles_and_unknown_refs_do_not_hang():
@@ -100,7 +109,7 @@ def test_group_by_tag_set_children_follow_parent():
     d = node("2026-11-11-dddddddd", title="D")
     e = node("2026-11-11-eeeeeeee", title="E", tags=["w"])
     tasks = [a, b, c, d, e]
-    todo, _ = split_today(tasks, TODAY)
+    todo, _ = split_open(tasks, TODAY)
     groups = group_rows(build_rows(tasks, todo))
     assert [(k, [r.task.title for r in rows]) for k, rows in groups] == [
         ("x y", ["A", "B"]),
@@ -116,7 +125,7 @@ from zktatr import pick as pk
 def test_fzf_input_is_path_then_plain_text():
     a = node("2026-11-11-aaaaaaaa", title="A", tags=["x"], due="2026-11-09", depends=["bbbbbbbb"])
     b = node("2026-11-11-bbbbbbbb", title="B")
-    todo, _ = split_today([a, b], TODAY)
+    todo, _ = split_open([a, b], TODAY)
     lines = pk.fzf_input(build_rows([a, b], todo), TODAY).splitlines()
     assert lines[0] == "tasks/2026-11-11-aaaaaaaa.md\t50 A 0/1 ! #x"
     assert lines[1].startswith("tasks/2026-11-11-bbbbbbbb.md\t50 └─ B")
@@ -138,20 +147,20 @@ from zktatr.models import local_date
 def test_done_and_edited_today_counts_even_without_done_field():
     mod = datetime.now().astimezone().isoformat(sep=" ")
     t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"status": "done"}, modified=mod))
-    todo, done = split_today([t], date.today())
+    todo, done = split_open([t], date.today())
     assert not todo and done == [t]
 
 
 def test_open_task_edited_today_is_not_done_today():
     mod = datetime.now().astimezone().isoformat(sep=" ")
     t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"status": "open"}, modified=mod))
-    assert split_today([t], date.today())[1] == []
+    assert split_open([t], date.today())[1] == []
 
 
 def test_done_edited_earlier_is_not_done_today():
     t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"status": "done"},
                             modified="2026-11-01 10:00:00.123456789+00:00"))
-    assert split_today([t], TODAY)[1] == []
+    assert split_open([t], TODAY)[1] == []
 
 
 def test_modified_is_converted_from_utc_to_local_date(monkeypatch):

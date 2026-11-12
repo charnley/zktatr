@@ -108,9 +108,9 @@ def test_awkward_title_and_tags_survive(notebook):
 def test_tasks_get_distinct_files_and_load_in_the_app(notebook):
     a, b = create_task("one"), create_task("two", ["x"])
     assert a != b
-    from zktatr.db import tasks_today
+    from zktatr.db import tasks_open
 
-    todo, _ = tasks_today()
+    todo, _ = tasks_open()
     assert sorted(t.title for t in todo) == ["one", "two"]
 
 
@@ -190,9 +190,9 @@ def test_priority_written_only_when_given(notebook):
     assert "priority: 50\n" in plain  # template default untouched
     urgent = create_task("urgent", ["x"], priority_from_pluses(4)).read_text()
     assert "priority: 100\n" in urgent and "tags: [x]" in urgent
-    from zktatr.db import tasks_today
+    from zktatr.db import tasks_open
 
-    todo, _ = tasks_today()
+    todo, _ = tasks_open()
     assert {t.title: t.priority for t in todo} == {"plain": 50, "urgent": 100}
 
 
@@ -247,3 +247,46 @@ def test_completion_is_a_real_file_matching_the_printed_script():
     assert text.startswith("#compdef todo\n") and "ln -sf" in text
     if shutil.which("zsh"):
         assert subprocess.run(["zsh", "-n", str(p)]).returncode == 0  # parses
+
+
+@needs_zk
+def test_due_written_and_decides_today_view(notebook):
+    from datetime import date, timedelta
+
+    from zktatr.db import tasks_open, tasks_today
+
+    today = date.today()
+    create_task("now", due=today)
+    create_task("later", due=today + timedelta(days=3))
+    create_task("old", due=today - timedelta(days=2))
+    create_task("undated")
+    assert f"due: {today}\n" in next(
+        p for p in (notebook / "tasks").glob("*.md") if "# now" in p.read_text()
+    ).read_text()
+    assert sorted(t.title for t in tasks_open()[0]) == ["later", "now", "old", "undated"]
+    assert sorted(t.title for t in tasks_today()[0]) == ["now", "old"]
+
+
+@needs_zk
+def test_link_is_written_quoted_and_loaded(notebook):
+    url = "https://example.com/a?b=c#frag: x"
+    create_task("with link", link=url)
+    create_task("no link")
+    from zktatr.db import tasks_open
+
+    todo, _ = tasks_open()
+    assert {t.title: t.link for t in todo} == {"with link": url, "no link": None}
+
+
+def test_due_today_label_hidden_in_today_view():
+    from datetime import date
+
+    from zktatr.app import render_task
+    from zktatr.models import Note, Task
+    from zktatr.tree import Row
+
+    today = date(2026, 11, 11)
+    t = Task.from_note(Note(path="tasks/x.md", title="t", meta={"due": "2026-11-11"}))
+    row = Row(t, 0, "", 0, 0)
+    assert "due today" in render_task(row, today)
+    assert "due today" not in render_task(row, today, show_due_today=False)

@@ -31,23 +31,44 @@ def all_tasks(session: Session) -> list[Task]:
     return [Task.from_note(n) for n in notes]
 
 
-def split_today(tasks: list[Task], today: date) -> tuple[list[Task], list[Task]]:
+def split_tasks(
+    tasks: list[Task], today: date, only_today: bool = False
+) -> tuple[list[Task], list[Task]]:
     """(to do, done today).
 
-    To do: not done, and no due date or due <= today. Overdue first, then by
+    To do: every open task, or with `only_today` just those due today or
+    earlier (undated ones are left out). Both lists are sorted the same way:
     priority (high first), then title. Done: finished on `today` (see
     `Task.finished_on`).
     """
-    todo = [t for t in tasks if not t.is_done and (t.due is None or t.due <= today)]
+    todo = [
+        t for t in tasks
+        if not t.is_done and (not only_today or (t.due is not None and t.due <= today))
+    ]  # fmt: skip
     done = [t for t in tasks if t.finished_on(today)]
-    todo.sort(key=lambda t: (t.due is None, t.due or today, -t.priority, t.title))
+    todo.sort(key=lambda t: (-t.priority, t.title))
     done.sort(key=lambda t: t.title)
     return todo, done
+
+
+def split_open(tasks: list[Task], today: date) -> tuple[list[Task], list[Task]]:
+    """`todo`: all open tasks, plus what was finished today."""
+    return split_tasks(tasks, today)
+
+
+def split_today(tasks: list[Task], today: date) -> tuple[list[Task], list[Task]]:
+    """`todo today`: open tasks due today or overdue, plus what was finished today."""
+    return split_tasks(tasks, today, only_today=True)
 
 
 def load_tasks(engine: Engine | None = None) -> list[Task]:
     with Session(engine or make_engine()) as session:
         return all_tasks(session)
+
+
+def tasks_open(today: date | None = None, engine: Engine | None = None):
+    with Session(engine or make_engine()) as session:
+        return split_open(all_tasks(session), today or date.today())
 
 
 def tasks_today(today: date | None = None, engine: Engine | None = None):

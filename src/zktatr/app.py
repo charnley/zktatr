@@ -1,4 +1,4 @@
-"""Textual TUI: today's tasks in a centered panel."""
+"""Textual TUI: open tasks (or just today's and overdue) in a centered panel."""
 
 from datetime import date
 
@@ -7,7 +7,7 @@ from textual.binding import Binding
 from textual.containers import Vertical, VerticalScroll
 from textual.widgets import Static
 
-from .db import db_path, load_tasks, split_today
+from .db import db_path, load_tasks, split_open, split_today
 from .models import Task
 from .pick import open_in_editor, pick
 from .tree import Row, build_rows, group_rows
@@ -22,7 +22,9 @@ def escape(text: str) -> str:
     return text.replace("[", "\\[")
 
 
-def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
+def render_task(
+    row: Row, today: date, hide_tag: str | None = None, show_due_today: bool = True
+) -> str:
     t = row.task
     pri = f"[dim]{'!' if t.priority >= 100 else '-'}[/]"
     text = f" {pri} [#808080]{escape(row.prefix)}[/]{escape(t.title)}"
@@ -30,7 +32,7 @@ def render_task(row: Row, today: date, hide_tag: str | None = None) -> str:
         text += f" [#808080]{row.done_deps}/{row.total_deps}[/]"
     if t.due and t.due < today:
         text += " !"
-    elif t.due == today:
+    elif t.due == today and show_due_today:
         text += " [yellow]due today[/]"
     hidden = hide_tag.split() if hide_tag else []
     tags = [x for x in t.tags if x not in hidden]
@@ -65,11 +67,12 @@ class TaskApp(App):
 
     POLL_SECONDS = 1.0
 
-    def __init__(self, group: str | None = None) -> None:
+    def __init__(self, group: str | None = None, only_today: bool = False) -> None:
         # ansi_color: use the terminal's own colors; the default theme paints a
         # fixed background that looks too bright under tmux.
         super().__init__(ansi_color=True)
         self.group = group
+        self.only_today = only_today
         self._pick_rows: list[Row] = []
 
     def compose(self) -> ComposeResult:
@@ -120,19 +123,20 @@ class TaskApp(App):
         pass
 
     def _render_todo(self, rows: list[Row], today: date) -> str:
+        show = not self.only_today  # "due today" is redundant in the today view
         if self.group != "tag":
-            return "\n".join(render_task(r, today) for r in rows)
+            return "\n".join(render_task(r, today, show_due_today=show) for r in rows)
         blocks = []
         for key, group in group_rows(rows):
             header = f"[bold #808080]{escape(key) if key else 'untagged'}[/]"
-            lines = "\n".join(render_task(r, today, hide_tag=key) for r in group)
+            lines = "\n".join(render_task(r, today, hide_tag=key, show_due_today=show) for r in group)
             blocks.append(header + "\n" + lines)
         return "\n\n".join(blocks)
 
     def action_refresh_tasks(self) -> None:
         today = date.today()
         tasks = load_tasks()
-        todo, done = split_today(tasks, today)
+        todo, done = (split_today if self.only_today else split_open)(tasks, today)
         rows = build_rows(tasks, todo)
         # fzf lists tasks in the same order as the screen: open, then finished.
         open_rows = [r for _, g in group_rows(rows) for r in g] if self.group == "tag" else rows
@@ -140,7 +144,7 @@ class TaskApp(App):
         self.query_one("#todo", Static).update(
             self._render_todo(rows, today) or "[dim]nothing left, nice[/]"
         )
-        self.query_one("#todo-title", Static).update("Open:")
+        self.query_one("#todo-title", Static).update("Today:" if self.only_today else "Open:")
         self.query_one("#done-title", Static).update("Finished:")
         self.query_one("#done", Static).update(
             "\n".join(f"[dim] X {escape(t.title)}[/]" for t in done)

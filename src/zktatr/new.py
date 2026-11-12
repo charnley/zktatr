@@ -13,6 +13,7 @@ import json
 import re
 import shutil
 import subprocess
+from datetime import date
 from pathlib import Path
 
 from .db import notebook_dir
@@ -74,9 +75,15 @@ def clean_tags(tags: list[str], known: dict[str, str] | None = None) -> list[str
 
 
 def render(
-    content: str, title: str, quoted_title: str, tags: list[str], priority: int | None = None
+    content: str,
+    title: str,
+    quoted_title: str,
+    tags: list[str],
+    priority: int | None = None,
+    due: date | None = None,
+    link: str | None = None,
 ) -> str:
-    """Fill in tags/priority and put the plain title back in the body heading."""
+    """Fill in tags/priority/due/link and put the plain title back in the body heading."""
     m = FRONTMATTER.fullmatch(content)
     if not m:
         raise RuntimeError("task template has no frontmatter")
@@ -85,16 +92,29 @@ def render(
         front = re.sub(r"^tags:.*$", f"tags: [{', '.join(tags)}]", front, count=1, flags=re.M)
     if priority is not None:
         front = re.sub(r"^priority:.*$", f"priority: {priority}", front, count=1, flags=re.M)
+    if due is not None:  # the template has no `due:` line, so add one (or replace it)
+        line = f"due: {due.isoformat()}"
+        if re.search(r"^due:.*$", front, flags=re.M):
+            front = re.sub(r"^due:.*$", line, front, count=1, flags=re.M)
+        else:
+            front = front[: -len("---\n")] + line + "\n---\n"
+    if link:  # quoted, so `?a=b: c` or `#frag` cannot break the YAML
+        front = re.sub(r"^link:.*$", f"link: {json.dumps(link, ensure_ascii=False)}", front, count=1, flags=re.M)
     return front + body.replace(quoted_title, title)
 
 
 def create_task(
-    title: str, tags: list[str] | None = None, priority: int | None = None, body: str = ""
+    title: str,
+    tags: list[str] | None = None,
+    priority: int | None = None,
+    body: str = "",
+    due: date | None = None,
+    link: str | None = None,
 ) -> Path:
     """Create a task note; returns its absolute path.
 
-    `priority=None` leaves the template's default in place. `body` goes where the
-    template puts `{{content}}`.
+    `priority=None` leaves the template's default in place, `due=None` leaves the
+    task undated. `body` goes where the template puts `{{content}}`.
     """
     title = " ".join(title.split())
     if not title:
@@ -119,7 +139,7 @@ def create_task(
         path = Path(lines[-1])  # dry-run prints the would-be path on stderr
         try:
             with path.open("x", encoding="utf-8") as f:
-                f.write(render(res.stdout, title, quoted, tags, priority))
+                f.write(render(res.stdout, title, quoted, tags, priority, due, link))
         except FileExistsError:
             continue
         idx = subprocess.run([zk, "index", "--quiet", "--notebook-dir", str(nb)],
